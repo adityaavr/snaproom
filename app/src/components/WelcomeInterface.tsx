@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Upload, Camera, Globe, Cube, ArrowRight, Play } from '@phosphor-icons/react'
 import { AppButton } from './AppButton'
-import { chrome } from './AppChrome'
 
 interface Props {
   onStartUpload: () => void

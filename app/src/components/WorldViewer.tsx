@@ -21,6 +21,8 @@ import { useDebugStore } from '../store/debug'
 import { WorldRenderMode, ObjectRenderMode, ViewerQuality, type Vec3Tuple, type World, type WorldHoverPreview, type WorldObjectAsset, type WorldSceneProject } from '../types/world'
 import { AppButton } from './AppButton'
 import { chrome } from './AppChrome'
+import { SemanticScanner } from '../features/semantic-labels/SemanticScanner'
+import { SemanticLabelRenderer } from '../features/semantic-labels/SemanticLabelRenderer'
 
 type CharHandle = CharacterControllerHandle | FlyControllerHandle
 const DEFAULT_ENVIRONMENT_URL = '/hdri.jpg'
@@ -309,6 +311,9 @@ export function WorldViewer({
           {butterfliesEnabled && <ButterflyScene />}
           <OriginHelper />
           {isHighQuality && <PostProcessing />}
+          
+          <SemanticScanner slug={desiredSlug} />
+          <SemanticLabelRenderer />
         </Suspense>
       </Canvas>
       {uiVisible && (

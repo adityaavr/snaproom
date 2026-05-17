@@ -2,8 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRoute } from 'wouter'
 import { WorldViewer } from './WorldViewer'
 import { useSceneProject } from '../modules/scene/useSceneProject'
-import { useDebugStore } from '../store/debug'
-import { isEditableTarget } from '../utils/dom'
 import type { WorldEntry, WorldHoverPreview, WorldObjectAsset } from '../types/world'
 
 interface Props {
@@ -15,7 +13,7 @@ interface Props {
 
 export function CleanWorldViewer({ worlds, targetSlug, refreshingWorlds, onRefreshWorlds }: Props) {
   const [editMatch] = useRoute('/:slug/edit')
-  const [selectedWorldVersions, setSelectedWorldVersions] = useState<Record<string, number>>({})
+  const [selectedWorldVersions] = useState<Record<string, number>>({})
   const [hoveredObjectAssetId, setHoveredObjectAssetId] = useState<string | null>(null)
   const [hoveredObjectInstanceId, setHoveredObjectInstanceId] = useState<string | null>(null)
   const [hoveredWorldPreview, setHoveredWorldPreview] = useState<WorldHoverPreview | null>(null)
@@ -30,7 +28,6 @@ export function CleanWorldViewer({ worlds, targetSlug, refreshingWorlds, onRefre
   const renderableObjectAssets = entry?.objectAssets.filter((asset) => asset.complete && asset.url) ?? []
   const renderableAllObjectAssets = entry?.allObjectAssets.filter((asset) => asset.complete && asset.url) ?? []
   const { sceneProject, sceneProjectReady, updateSceneProject } = useSceneProject(entry?.slug, `/`, entry?.sceneProject)
-  const sceneProjectActive = Boolean(sceneProject && sceneProjectEnabled)
 
   useEffect(() => {
     setSceneProjectEnabled(true)
@@ -47,13 +44,6 @@ export function CleanWorldViewer({ worlds, targetSlug, refreshingWorlds, onRefre
     setHoveredObjectInstanceId((current) => {
       if (hovering) return instanceId ?? null
       return current === instanceId ? null : current
-    })
-  }, [])
-
-  const handleWorldHover = useCallback((preview: WorldHoverPreview, hovering: boolean) => {
-    setHoveredWorldPreview((current) => {
-      if (hovering) return preview
-      return current?.slug === preview.slug ? null : current
     })
   }, [])
 

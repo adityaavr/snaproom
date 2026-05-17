@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/shhar/Documents/Ralphthon@SG-May2026/Snaproom/.codex/hooks/setup-check.sh'"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/shhar/Documents/Ralphthon@SG-May2026/Snaproom/.codex/hooks/input-check.sh'"
+          }
+        ]
+      }
+    ]
+  }
+}

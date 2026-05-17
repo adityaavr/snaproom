@@ -13,7 +13,7 @@ app/node_modules/
 app/.vite/
 
 # Environment
-.env
+.env.local
 
 # OS
 .DS_Store

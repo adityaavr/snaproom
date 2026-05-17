@@ -58,4 +58,31 @@ SNAPROOM uses a few generation models:
 ### Development
 
 - remove `/app` from the `.claudeignore` file to give Claude the ability to change the React viewer.
+
+## Semantic Live Labels
+
+Snaproom now includes an AI-powered semantic layer. This allows users to view meaningful object and location labels pinned inside the 3D world as they explore, creating a "Google Lens for a walkable 3D room" experience.
+
+### How it works
+
+1. **Scanning**: When viewing a room, press `Shift + L` or click the **Scan Room** button.
+2. **Detection (Gemini Vision)**: Snaproom captures screenshots from your current view and sends them to a vision model (currently using a mock adapter for development) to detect objects and architectural features.
+3. **3D Projection**: The 2D bounding boxes are projected into the 3D world space using Three.js raycasting against the loaded environment meshes.
+4. **Clustering & Persistence**: Repeated detections are clustered, and the resulting 3D semantic anchors are saved to `localStorage` per world. 
+
+### Usage
+
+- **Toggle Labels**: Press `L` or click the **Labels** toggle in the bottom control bar.
+- **Scan Room**: Press `Shift + L` or click the **Scan Room** button in the top bar.
+- **Mock Mode**: The current implementation uses a mock client (`mockGeminiClient.ts`) for development, which returns a predefined set of labels (e.g. Sofa, Window, Plant).
+- **Future Integration**: To use real AI detection, replace the logic in `mockGeminiClient.ts` to call your backend API connected to Gemini Vision.
+
+### Testing the Feature
+
+1. Ensure you have built/started the app (`bun run dev`).
+2. Open a generated world.
+3. Click "Scan Room" and observe the mock labels appearing in the 3D space.
+4. Move around using Fly and Walk mode to ensure labels stick to their 3D anchors.
+5. Refresh the page to verify labels persist.
+
 # snaproom
