@@ -745,9 +745,27 @@ function worldsPlugin(): Plugin {
             const buffer = Buffer.from(data, 'base64')
             const inputPath = path.join(repoRoot, 'input', filename)
             fs.writeFileSync(inputPath, buffer)
-            
+
             console.log(`✅ Saved ${filename} to input/`)
-            
+
+            // Create the world envelope so the viewer lists this world —
+            // readWorlds() skips any directory without a project.json.
+            const worldDir = path.join(worldsDir, worldSlug)
+            const sourceDir = path.join(worldDir, 'source')
+            fs.mkdirSync(sourceDir, { recursive: true })
+            const sourceExt = path.extname(filename) || '.png'
+            const sourcePath = path.join(sourceDir, `0-${worldSlug}${sourceExt}`)
+            if (!fs.existsSync(sourcePath)) fs.writeFileSync(sourcePath, buffer)
+            const projectJsonPath = path.join(worldDir, 'project.json')
+            if (!fs.existsSync(projectJsonPath)) {
+              fs.writeFileSync(
+                projectJsonPath,
+                `${JSON.stringify({ schema_version: 1, slug: worldSlug, display_name: roomName, created_at: new Date().toISOString() }, null, 2)}\n`
+              )
+              console.log(`📝 Created worlds/${worldSlug}/project.json`)
+            }
+            notifyWorldsChanged(server)
+
             // Generate world using the same script that Claude Code used
             const prompt = `A modern ${roomName.toLowerCase()} interior - static environment without any personal items or objects`
             const scriptPath = path.join(repoRoot, '.claude/scripts/world/generate-world.mjs')

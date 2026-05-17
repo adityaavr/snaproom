@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf .claude CLAUDE.md)",
+      "Bash(mkdir -p src/screens src/components)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(bun add *)",
+      "Bash(bun run *)",
+      "Bash(xcodebuild -version)",
+      "Bash(pod --version)",
+      "Bash(node --check .claude/scripts/asset-pipeline/generate-single-asset.mjs)",
+      "Bash(node .claude/scripts/asset-pipeline/generate-single-asset.mjs)",
+      "Bash(git fetch *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git merge *)",
+      "Bash(grep *)",
+      "Bash(git commit *)",
+      "Skill(impeccable)",
+      "Bash(node *)",
+      "Bash(curl -s -o /dev/null -w \"root %{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(curl -s -o /dev/null -w \"model.glb %{http_code} %{size_download}b\\\\n\" http://localhost:5173/model.glb)",
+      "Bash(curl -s -o /dev/null -w \"hdri.jpg %{http_code}\\\\n\" http://localhost:5173/hdri.jpg)",
+      "Bash(lsof -i :5173 -sTCP:LISTEN -n -P)",
+      "Bash(curl -s -o /dev/null -w \"v6 %{http_code}\\\\n\" \"http://[::1]:5173/\")",
+      "Bash(curl -s -o /dev/null -w \"127 %{http_code}\\\\n\" \"http://127.0.0.1:5173/\")",
+      "Bash(echo \"started pid $!\")",
+      "Bash(curl -s -o /dev/null -w \"model.glb %{http_code} %{size_download}b\\\\nhdri %{http_code_hdri}\\\\n\" http://localhost:5173/model.glb)",
+      "Bash(echo \"[exit code: $?]\")",
+      "Bash(ps -p 49672 -o pid,etime,command)",
+      "Bash(echo \"[exit: $?]\")",
+      "Bash(break)"
+    ]
+  }
+}

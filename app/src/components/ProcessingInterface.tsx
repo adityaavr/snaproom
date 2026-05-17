@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { CheckCircle, Clock, Gear, Globe, Cube, SpeakerHigh, Eye, Pulse } from '@phosphor-icons/react'
 import { AppButton } from './AppButton'
-import { FloorPlanProcessor } from '../services/floorplanProcessor'
 
 interface ProcessingStep {
   id: string
@@ -27,13 +26,59 @@ interface Props {
   onCancel?: () => void
 }
 
+function slugifyRoomName(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .slice(0, 40) || 'room'
+  )
+}
+
+/**
+ * Read a File as base64 with no data-URI prefix. FileReader is used instead of
+ * btoa(String.fromCharCode(...bytes)) because the spread overflows the call
+ * stack on multi-MB images.
+ */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : ''
+      resolve(result.slice(result.indexOf(',') + 1))
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read file'))
+    reader.readAsDataURL(file)
+  })
+}
+
+/**
+ * Trigger World Labs world generation via the dev-server endpoint, which saves
+ * the image and runs generate-world.mjs. Throws on failure — no silent fallback.
+ */
+async function requestWorldGeneration(file: File, roomName: string, worldSlug: string) {
+  const data = await fileToBase64(file)
+  const response = await fetch('/__upload-and-generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: file.name, data, roomName, worldSlug }),
+  })
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    throw new Error(`World generation request failed (${response.status}). ${detail}`.trim())
+  }
+  return (await response.json()) as { worldSlug: string; command?: string }
+}
+
 export function ProcessingInterface({ roomName, fileCount, uploadedFiles, onComplete, onCancel }: Props) {
   const [, setCurrentStepIndex] = useState(0)
-  const [generatedWorldSlug, setGeneratedWorldSlug] = useState<string | null>(null)
-  
+  const startedRef = useRef(false)
+
   // Check if we have floor plans to determine processing pipeline
   const hasFloorPlans = uploadedFiles.some(file => file.type === 'floorplan')
-  
+
   const [steps, setSteps] = useState<ProcessingStep[]>(hasFloorPlans ? [
     {
       id: 'upload',
@@ -118,119 +163,53 @@ export function ProcessingInterface({ roomName, fileCount, uploadedFiles, onComp
     }
   ])
 
-  // Process the uploaded files based on type
+  // Drive the pipeline exactly once on mount. The `world` step performs the
+  // real World Labs generation; the other steps are visual progress only.
   useEffect(() => {
+    if (startedRef.current) return
+    startedRef.current = true
+
+    const worldSlug = slugifyRoomName(roomName)
+
+    const runStep = async (stepId: string) => {
+      if (stepId !== 'world') {
+        // Analysis / objects / audio are not wired to backends yet.
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        return
+      }
+
+      const primary = uploadedFiles[0]
+      if (!primary) {
+        throw new Error('No uploaded image is available to generate a world from.')
+      }
+
+      console.log(`🌍 Generating world "${worldSlug}" from ${primary.file.name} via World Labs…`)
+      const result = await requestWorldGeneration(primary.file, roomName, worldSlug)
+      console.log('✅ World Labs generation started:', result.command ?? worldSlug)
+    }
+
     const processSteps = async () => {
       try {
         for (let i = 0; i < steps.length; i++) {
-          // Update current step to running
           setCurrentStepIndex(i)
           setSteps(prev => prev.map((step, index) => ({
             ...step,
             status: index === i ? 'running' : index < i ? 'completed' : 'pending'
           })))
 
-          const currentStep = steps[i]
-          
-          // Handle different processing steps
-          if (hasFloorPlans) {
-            switch (currentStep.id) {
-              case 'upload':
-                // Simulate file upload
-                await new Promise(resolve => setTimeout(resolve, 2000))
-                break
-                
-              case 'floorplan-analysis':
-                // Analyze floor plan structure
-                await new Promise(resolve => setTimeout(resolve, 3000))
-                break
-                
-              case 'room-generation':
-                // Generate realistic room images from floor plan
-                console.log('🏠 Starting floor plan to room image generation...')
-                const floorPlanResult = await FloorPlanProcessor.processFloorPlanToWorld({
-                  uploadedFiles,
-                  roomName
-                })
-                
-                if (!floorPlanResult.success) {
-                  console.error('Floor plan processing failed:', floorPlanResult.error)
-                  // Continue anyway for demo purposes
-                }
-                console.log('✅ Generated room images:', floorPlanResult.roomImages)
-                console.log('🌍 World generation status:', floorPlanResult.worldGenerated)
-                
-                // Store the generated world slug
-                if (floorPlanResult.worldSlug) {
-                  setGeneratedWorldSlug(floorPlanResult.worldSlug)
-                }
-                break
-                
-              case 'world':
-                // Convert generated images to 3D environment
-                await new Promise(resolve => setTimeout(resolve, 4000))
-                break
-                
-              case 'audio':
-                // Generate ambient audio
-                await new Promise(resolve => setTimeout(resolve, 2000))
-                break
-            }
-          } else {
-            // Regular photo processing pipeline
-            switch (currentStep.id) {
-              case 'upload':
-                await new Promise(resolve => setTimeout(resolve, 2000))
-                break
-                
-              case 'analysis':
-                console.log('📸 Processing regular photos...')
-                const photoResult = await FloorPlanProcessor.processRegularPhotos({
-                  uploadedFiles,
-                  roomName
-                })
-                
-                if (!photoResult.success) {
-                  console.error('Photo processing failed:', photoResult.error)
-                }
-                break
-                
-              case 'world':
-                await new Promise(resolve => setTimeout(resolve, 5000))
-                break
-                
-              case 'objects':
-                await new Promise(resolve => setTimeout(resolve, 4000))
-                break
-                
-              case 'audio':
-                await new Promise(resolve => setTimeout(resolve, 2000))
-                break
-            }
-          }
+          await runStep(steps[i].id)
 
-          // Mark step as completed
           setSteps(prev => prev.map((step, index) => ({
             ...step,
-            status: index <= i ? 'completed' : 'pending'
+            status: index <= i ? 'completed' : step.status
           })))
         }
 
-        // All steps completed, use generated world slug or fallback
-        const roomSlug = generatedWorldSlug || roomName.toLowerCase()
-          .replace(/[^a-z0-9\s]/gi, '')
-          .replace(/\s+/g, '-')
-          .slice(0, 30)
-        
-        console.log('🎯 Completing processing with world slug:', roomSlug)
-        
-        // Small delay before completing
-        setTimeout(() => onComplete(roomSlug), 1000)
-        
+        console.log('🎯 Processing complete, opening world:', worldSlug)
+        setTimeout(() => onComplete(worldSlug), 1000)
       } catch (error) {
         console.error('Processing error:', error)
-        // Mark current step as error
-        setSteps(prev => prev.map((step, index) => ({
+        setSteps(prev => prev.map(step => ({
           ...step,
           status: step.status === 'running' ? 'error' : step.status
         })))
@@ -238,7 +217,8 @@ export function ProcessingInterface({ roomName, fileCount, uploadedFiles, onComp
     }
 
     processSteps()
-  }, [roomName, onComplete, hasFloorPlans, steps, uploadedFiles])
+    // Mount-only: startedRef guards against React re-running this effect.
+  }, [])
 
   const totalEstimatedTime = hasFloorPlans ? "9-14 minutes" : "8-13 minutes"
   const completedSteps = steps.filter(step => step.status === 'completed').length
@@ -278,7 +258,9 @@ export function ProcessingInterface({ roomName, fileCount, uploadedFiles, onComp
                   ? 'border-[var(--accent)]/55 bg-black/35'
                   : step.status === 'completed'
                     ? 'border-emerald-400/35 bg-emerald-500/10'
-                    : 'border-[var(--line)] bg-black/15'
+                    : step.status === 'error'
+                      ? 'border-red-400/45 bg-red-500/10'
+                      : 'border-[var(--line)] bg-black/15'
               }`}
             >
               <div className="flex items-start gap-3">
@@ -301,7 +283,9 @@ export function ProcessingInterface({ roomName, fileCount, uploadedFiles, onComp
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-[var(--text-2)]">{step.description}</p>
+                  <p className="text-sm text-[var(--text-2)]">
+                    {step.status === 'error' ? 'This step failed — see the browser console for details.' : step.description}
+                  </p>
                 </div>
               </div>
             </div>

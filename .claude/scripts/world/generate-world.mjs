@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { copyFile, readFile, readdir } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import path from "node:path";
 import {
   downloadFile,
@@ -26,6 +28,9 @@ import {
 const ENDPOINT = "https://api.worldlabs.ai/marble/v1";
 const MODEL = "marble-1.1";
 const IMAGE_EXTENSIONS = new Set([".avif", ".gif", ".heic", ".heif", ".jpeg", ".jpg", ".png", ".webp"]);
+// World Labs cannot decode HEIC/HEIF; these are transcoded to JPEG first.
+const HEIC_EXTENSIONS = new Set([".heic", ".heif"]);
+const execFileAsync = promisify(execFile);
 
 async function downloadAsset(url, destPath) {
   if (await pathExists(destPath)) return destPath;
@@ -122,6 +127,29 @@ async function promptFromImageJson(world) {
     .join("\n");
 }
 
+/**
+ * World Labs rejects HEIC/HEIF ("unable to decode image"). Transcode such
+ * images to JPEG via macOS `sips`; pass through anything else unchanged.
+ */
+async function toDecodableImage(image) {
+  if (!image || isUrl(image)) return image;
+  const ext = path.extname(image).toLowerCase();
+  if (!HEIC_EXTENSIONS.has(ext)) return image;
+
+  const jpegPath = `${image.slice(0, image.length - ext.length)}.jpg`;
+  if (!(await pathExists(jpegPath))) {
+    try {
+      await execFileAsync("sips", ["-s", "format", "jpeg", image, "--out", jpegPath]);
+    } catch (error) {
+      throw new Error(
+        `Could not convert HEIC image to JPEG (${error.message}). ` +
+          "Upload a JPEG or PNG image instead."
+      );
+    }
+  }
+  return jpegPath;
+}
+
 async function imagePrompt(image, textPrompt) {
   if (isUrl(image)) {
     return {
@@ -154,7 +182,7 @@ async function buildRequest({ world, image, prompt }) {
     return {
       display_name: world,
       model: MODEL,
-      world_prompt: await imagePrompt(image, textPrompt)
+      world_prompt: await imagePrompt(await toDecodableImage(image), textPrompt)
     };
   }
 
@@ -183,12 +211,21 @@ async function submitWorld(request) {
     body: JSON.stringify(request)
   });
 
-  const body = await response.json().catch(() => ({}));
+  const raw = await response.text();
+  let body;
+  try {
+    body = raw ? JSON.parse(raw) : {};
+  } catch {
+    body = undefined;
+  }
   if (!response.ok) {
-    throw new Error(`World Labs submit failed (${response.status}).`);
+    const detail = body?.error?.message || body?.error || body?.message || raw;
+    throw new Error(
+      `World Labs submit failed (${response.status}): ${String(detail || "no response body").slice(0, 600)}`
+    );
   }
 
-  return body;
+  return body ?? {};
 }
 
 function operationId(operation) {
