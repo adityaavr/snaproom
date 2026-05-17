@@ -726,8 +726,8 @@ function worldsPlugin(): Plugin {
         })
         req.on('end', async () => {
           try {
-            const { filename, data, roomName, worldSlug } = JSON.parse(body)
-            
+            const { filename, data, roomName, worldSlug, isFloorplan } = JSON.parse(body)
+
             if (!filename || !data || !roomName || !worldSlug) {
               res.statusCode = 400
               res.end('Missing required fields: filename, data, roomName, worldSlug')
@@ -766,11 +766,15 @@ function worldsPlugin(): Plugin {
             }
             notifyWorldsChanged(server)
 
-            // Generate world using the same script that Claude Code used
+            // Generate the world. Floor plans first go through a FAL image
+            // edit (floor plan -> photoreal interior) before World Labs;
+            // photos go straight to World Labs.
             const prompt = `A modern ${roomName.toLowerCase()} interior - static environment without any personal items or objects`
-            const scriptPath = path.join(repoRoot, '.claude/scripts/world/generate-world.mjs')
-            
-            console.log(`🌍 Starting world generation for ${roomName}...`)
+            const scriptPath = isFloorplan
+              ? path.join(repoRoot, '.claude/scripts/floorplan/generate-world-from-floorplan.mjs')
+              : path.join(repoRoot, '.claude/scripts/world/generate-world.mjs')
+
+            console.log(`🌍 Starting ${isFloorplan ? 'floor plan -> world' : 'world'} generation for ${roomName}...`)
             console.log(`Command: node ${scriptPath} --world ${worldSlug} --image input/${filename} --prompt "${prompt}"`)
             
             // Run the world generation script

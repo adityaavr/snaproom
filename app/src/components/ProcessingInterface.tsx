@@ -55,15 +55,21 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 /**
- * Trigger World Labs world generation via the dev-server endpoint, which saves
- * the image and runs generate-world.mjs. Throws on failure — no silent fallback.
+ * Trigger world generation via the dev-server endpoint. A photo goes straight
+ * to World Labs; a floor plan is first rendered into a photoreal interior by
+ * FAL, then handed to World Labs. Throws on failure — no silent fallback.
  */
-async function requestWorldGeneration(file: File, roomName: string, worldSlug: string) {
+async function requestWorldGeneration(
+  file: File,
+  roomName: string,
+  worldSlug: string,
+  isFloorplan: boolean,
+) {
   const data = await fileToBase64(file)
   const response = await fetch('/__upload-and-generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filename: file.name, data, roomName, worldSlug }),
+    body: JSON.stringify({ filename: file.name, data, roomName, worldSlug, isFloorplan }),
   })
   if (!response.ok) {
     const detail = await response.text().catch(() => '')
@@ -183,9 +189,13 @@ export function ProcessingInterface({ roomName, fileCount, uploadedFiles, onComp
         throw new Error('No uploaded image is available to generate a world from.')
       }
 
-      console.log(`🌍 Generating world "${worldSlug}" from ${primary.file.name} via World Labs…`)
-      const result = await requestWorldGeneration(primary.file, roomName, worldSlug)
-      console.log('✅ World Labs generation started:', result.command ?? worldSlug)
+      const isFloorplan = primary.type === 'floorplan'
+      console.log(
+        `🌍 Generating world "${worldSlug}" from ${primary.file.name}` +
+          (isFloorplan ? ' (floor plan → FAL interior → World Labs)…' : ' via World Labs…'),
+      )
+      const result = await requestWorldGeneration(primary.file, roomName, worldSlug, isFloorplan)
+      console.log('✅ Generation started:', result.command ?? worldSlug)
     }
 
     const processSteps = async () => {
