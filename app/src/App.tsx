@@ -179,6 +179,7 @@ export function App() {
       <ProcessingInterface 
         roomName={roomName}
         fileCount={uploadedFiles.length}
+        uploadedFiles={uploadedFiles}
         onComplete={(slug) => {
           setCurrentRoomSlug(slug)
           setAppState('room')

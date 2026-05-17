@@ -11,8 +11,31 @@
 html, body, #root {
   width: 100%;
   height: 100%;
-  overflow: hidden;
-  background: black;
+}
+
+:root {
+  color-scheme: dark;
+  --bg-0: oklch(0.14 0.01 245);
+  --bg-1: oklch(0.18 0.012 245);
+  --surface: oklch(0.23 0.013 245 / 0.9);
+  --text-1: oklch(0.95 0.005 245);
+  --text-2: oklch(0.8 0.008 245);
+  --text-3: oklch(0.64 0.01 245);
+  --line: oklch(0.42 0.01 245 / 0.45);
+  --accent: oklch(0.74 0.08 195);
+}
+
+html,
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: linear-gradient(180deg, var(--bg-1), var(--bg-0));
+  color: var(--text-1);
+  font-family: Manrope, system-ui, sans-serif;
+}
+
+#root {
+  min-height: 100%;
 }
 
 @keyframes chrome-enter {
@@ -44,3 +67,5 @@ html, body, #root {
 .chrome-enter-center {
   animation: chrome-enter-center 180ms ease-out both;
 }
+
+.font-display { font-family: Manrope, system-ui, sans-serif; }

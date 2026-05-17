@@ -711,6 +711,106 @@ function worldsPlugin(): Plugin {
         res.setHeader('Content-Type', 'application/json')
         res.end(JSON.stringify(readWorlds()))
       })
+      
+      server.middlewares.use('/__upload-and-generate', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method not allowed')
+          return
+        }
+
+        let body = ''
+        req.setEncoding('utf-8')
+        req.on('data', (chunk) => {
+          body += chunk
+        })
+        req.on('end', async () => {
+          try {
+            const { filename, data, roomName, worldSlug } = JSON.parse(body)
+            
+            if (!filename || !data || !roomName || !worldSlug) {
+              res.statusCode = 400
+              res.end('Missing required fields: filename, data, roomName, worldSlug')
+              return
+            }
+
+            console.log(`📁 Uploading ${filename} for ${roomName}`)
+            
+            // Ensure input directory exists
+            if (!fs.existsSync(path.join(repoRoot, 'input'))) {
+              fs.mkdirSync(path.join(repoRoot, 'input'), { recursive: true })
+            }
+            
+            // Convert base64 to buffer and save file
+            const buffer = Buffer.from(data, 'base64')
+            const inputPath = path.join(repoRoot, 'input', filename)
+            fs.writeFileSync(inputPath, buffer)
+            
+            console.log(`✅ Saved ${filename} to input/`)
+            
+            // Generate world using the same script that Claude Code used
+            const prompt = `A modern ${roomName.toLowerCase()} interior - static environment without any personal items or objects`
+            const scriptPath = path.join(repoRoot, '.claude/scripts/world/generate-world.mjs')
+            
+            console.log(`🌍 Starting world generation for ${roomName}...`)
+            console.log(`Command: node ${scriptPath} --world ${worldSlug} --image input/${filename} --prompt "${prompt}"`)
+            
+            // Run the world generation script
+            const child = spawn('node', [
+              scriptPath,
+              '--world', worldSlug,
+              '--image', `input/${filename}`,
+              '--prompt', prompt
+            ], {
+              cwd: repoRoot,
+              stdio: ['inherit', 'pipe', 'pipe']
+            })
+            
+            let output = ''
+            let errorOutput = ''
+            
+            child.stdout?.on('data', (data) => {
+              const text = data.toString()
+              output += text
+              console.log(text)
+            })
+            
+            child.stderr?.on('data', (data) => {
+              const text = data.toString()
+              errorOutput += text
+              console.error(text)
+            })
+            
+            child.on('close', (code) => {
+              if (code === 0) {
+                console.log(`✅ World generation completed for ${worldSlug}`)
+                // Trigger world reload
+                notifyWorldsChanged(server)
+              } else {
+                console.error(`❌ World generation failed with code ${code}`)
+                console.error('Error output:', errorOutput)
+              }
+            })
+            
+            // Return immediately without waiting for completion
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({
+              success: true,
+              message: 'File uploaded and world generation started',
+              filename,
+              inputPath: `input/${filename}`,
+              worldSlug,
+              command: `node ${scriptPath} --world ${worldSlug} --image input/${filename} --prompt "${prompt}"`
+            }))
+            
+          } catch (error) {
+            console.error('Upload and generation error:', error)
+            res.statusCode = 500
+            res.end(`Upload failed: ${error.message}`)
+          }
+        })
+      })
       server.middlewares.use('/__open-claude-terminal', (_req, res) => {
         if (!openClaudeTerminal()) {
           res.statusCode = 501

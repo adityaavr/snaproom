@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { Upload, Camera, House, ArrowRight, X, CheckCircle } from '@phosphor-icons/react'
 import { AppButton } from './AppButton'
-import { chrome } from './AppChrome'
 
 interface UploadedFile {
   id: string
@@ -29,10 +28,12 @@ export function UploadInterface({ onStartProcessing, onCancel }: Props) {
         const id = Math.random().toString(36).substr(2, 9)
         const preview = URL.createObjectURL(file)
         
-        // Simple heuristic to detect floorplans vs photos
+        // Enhanced heuristic to detect floorplans vs photos
         const isFloorplan = file.name.toLowerCase().includes('floor') || 
                            file.name.toLowerCase().includes('plan') ||
-                           file.name.toLowerCase().includes('layout')
+                           file.name.toLowerCase().includes('layout') ||
+                           file.name.toLowerCase().includes('blueprint') ||
+                           file.name.toLowerCase().includes('schematic')
         
         newFiles.push({
           id,
@@ -85,6 +86,8 @@ export function UploadInterface({ onStartProcessing, onCancel }: Props) {
   }, [])
 
   const canStartProcessing = uploadedFiles.length > 0 && roomName.trim().length > 0
+  const hasFloorPlan = uploadedFiles.some(file => file.type === 'floorplan')
+  const hasPhotos = uploadedFiles.some(file => file.type === 'photo')
 
   const handleStartProcessing = useCallback(() => {
     if (canStartProcessing) {
@@ -93,73 +96,45 @@ export function UploadInterface({ onStartProcessing, onCancel }: Props) {
   }, [uploadedFiles, roomName, canStartProcessing, onStartProcessing])
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-      <div className={`${chrome.enter} w-full max-w-4xl`}>
-        {/* Header */}
-        <div className={`${chrome.bar} px-6 py-4`}>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold font-mono">snaproom</h1>
-              <p className="text-white/60 text-sm mt-1">
-                Turn photos of any room into a walkable 3D world
-              </p>
-            </div>
+    <div className="min-h-screen px-4 py-8 md:px-6">
+      <div className="mx-auto w-full max-w-4xl space-y-4">
+        <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 md:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h1 className="text-xl font-semibold">Upload source images</h1>
             {onCancel && (
-              <AppButton
-                onClick={onCancel}
-                className="h-8 w-8 justify-center p-1 text-white/60"
-                aria-label="Cancel"
-              >
-                <X size={16} weight="regular" />
+              <AppButton onClick={onCancel} className="h-8 w-8 justify-center rounded-md border border-[var(--line)] p-1">
+                <X size={16} />
               </AppButton>
             )}
           </div>
-        </div>
 
-        <div className={`${chrome.panel} p-6 space-y-6`}>
-          {/* Room Name Input */}
-          <div>
-            <label className="block text-sm font-medium text-white/80 mb-2">
-              Room Name
-            </label>
-            <input
-              type="text"
-              value={roomName}
-              onChange={(e) => setRoomName(e.target.value)}
-              placeholder="e.g., Living Room, Bedroom, Kitchen..."
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded text-white placeholder:text-white/40 focus:border-white/30 focus:outline-none"
-            />
-          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm text-[var(--text-2)]">Room name</label>
+              <input
+                type="text"
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+                placeholder="Living room"
+                className="w-full rounded-lg border border-[var(--line)] bg-black/20 px-3 py-2.5 text-sm text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus:outline-none"
+              />
+            </div>
 
-          {/* Upload Area */}
-          <div>
-            <label className="block text-sm font-medium text-white/80 mb-2">
-              Upload Photos or Floorplans
-            </label>
             <div
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
-              className={`
-                border-2 border-dashed rounded-lg p-8 text-center transition-colors
-                ${dragOver 
-                  ? 'border-white/40 bg-white/5' 
-                  : 'border-white/20 hover:border-white/30'
-                }
-              `}
+              className={`rounded-lg border border-dashed p-6 text-center ${dragOver ? 'border-[var(--accent)] bg-black/35' : 'border-[var(--line)] bg-black/15'}`}
             >
-              <Upload size={48} className="mx-auto text-white/40 mb-4" />
-              <p className="text-white/60 mb-2">
-                Drag & drop images here, or{' '}
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-white underline hover:text-white/80"
-                >
-                  browse files
+              <Upload size={30} className="mx-auto text-[var(--accent)]" />
+              <p className="mt-2 text-sm text-[var(--text-2)]">
+                Drag images here or{' '}
+                <button onClick={() => fileInputRef.current?.click()} className="underline underline-offset-4 text-[var(--text-1)]">
+                  browse
                 </button>
               </p>
-              <p className="text-white/40 text-sm">
-                Supports JPG, PNG, HEIC. Multiple angles work best.
+              <p className="mt-1 text-xs text-[var(--text-3)]">
+                ✨ <strong>New:</strong> Upload floor plans to automatically generate realistic room images, then convert to 3D spaces
               </p>
               <input
                 ref={fileInputRef}
@@ -170,97 +145,61 @@ export function UploadInterface({ onStartProcessing, onCancel }: Props) {
                 className="hidden"
               />
             </div>
-          </div>
 
-          {/* Uploaded Files */}
-          {uploadedFiles.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-white/80 mb-2">
-                Uploaded Images ({uploadedFiles.length})
-              </label>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {uploadedFiles.map((file) => (
-                  <div key={file.id} className="relative group">
-                    <div className="aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10">
-                      <img
-                        src={file.preview}
-                        alt={file.file.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    
-                    {/* File Type Toggle */}
-                    <button
-                      onClick={() => toggleFileType(file.id)}
-                      className={`
-                        absolute top-2 left-2 px-2 py-1 rounded text-xs font-medium transition-colors
-                        ${file.type === 'photo' 
-                          ? 'bg-blue-500/80 text-white' 
-                          : 'bg-green-500/80 text-white'
-                        }
-                      `}
-                    >
-                      {file.type === 'photo' ? (
-                        <>
-                          <Camera size={12} className="inline mr-1" />
-                          Photo
-                        </>
-                      ) : (
-                        <>
-                          <House size={12} className="inline mr-1" />
-                          Plan
-                        </>
-                      )}
-                    </button>
-
-                    {/* Remove Button */}
-                    <button
-                      onClick={() => removeFile(file.id)}
-                      className="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X size={14} className="text-white" />
-                    </button>
-
-                    {/* File Name */}
-                    <p className="text-xs text-white/60 mt-1 truncate" title={file.file.name}>
-                      {file.file.name}
-                    </p>
+            {uploadedFiles.length > 0 && (
+              <div className="rounded-lg border border-[var(--line)] bg-black/15 p-3">
+                <div className="mb-2 flex items-center justify-between text-sm text-[var(--text-2)]">
+                  <span>Files</span>
+                  <span>{uploadedFiles.length}</span>
+                </div>
+                {hasFloorPlan && (
+                  <div className="mb-2 rounded px-2 py-1 text-xs bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                    🏗️ Floor plan detected! This will be converted to realistic room images using AI architectural visualization.
                   </div>
-                ))}
+                )}
+                {hasFloorPlan && hasPhotos && (
+                  <div className="mb-2 rounded px-2 py-1 text-xs bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                    ⚠️ Mixed content: Floor plans and photos detected. Floor plan workflow will take priority.
+                  </div>
+                )}
+                <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto md:grid-cols-3">
+                  {uploadedFiles.map((file) => (
+                    <div key={file.id} className="group relative">
+                      <div className="aspect-square overflow-hidden rounded-md border border-[var(--line)] bg-black/30">
+                        <img src={file.preview} alt={file.file.name} className="h-full w-full object-cover" />
+                      </div>
+                      <button
+                        onClick={() => toggleFileType(file.id)}
+                        className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px]"
+                      >
+                        {file.type === 'photo' ? <Camera size={10} /> : <House size={10} />}
+                        {file.type === 'photo' ? 'Photo' : 'Plan'}
+                      </button>
+                      <button
+                        onClick={() => removeFile(file.id)}
+                        className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 opacity-0 group-hover:opacity-100"
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Tips */}
-          <div className="bg-white/5 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-white/80 mb-2">Tips for best results:</h3>
-            <ul className="text-sm text-white/60 space-y-1">
-              <li>• Take photos from multiple angles and corners</li>
-              <li>• Include furniture and objects in your shots</li>
-              <li>• Good lighting helps - avoid very dark images</li>
-              <li>• Floorplans help define room layout and dimensions</li>
-            </ul>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
             <AppButton
               onClick={handleStartProcessing}
               disabled={!canStartProcessing}
-              className={`
-                flex-1 flex items-center justify-center gap-2 py-3 font-medium
-                ${canStartProcessing 
-                  ? 'bg-white text-black hover:bg-white/90' 
-                  : 'bg-white/10 text-white/40 cursor-not-allowed'
-                }
-              `}
+              className={`w-full justify-center rounded-lg py-2.5 font-medium ${
+                canStartProcessing ? 'bg-[var(--accent)] text-slate-900 hover:opacity-90' : 'bg-black/30 text-[var(--text-3)]'
+              }`}
             >
-              <CheckCircle size={18} />
-              Create 3D Room
-              <ArrowRight size={18} />
+              <CheckCircle size={16} />
+              {hasFloorPlan ? 'Convert floor plan to 3D room' : 'Generate 3D room'}
+              <ArrowRight size={16} />
             </AppButton>
           </div>
-        </div>
+          </section>
       </div>
     </div>
   )

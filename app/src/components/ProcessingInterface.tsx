@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { CheckCircle, Clock, Gear, Globe, Cube, SpeakerHigh, Eye } from '@phosphor-icons/react'
+import { CheckCircle, Clock, Gear, Globe, Cube, SpeakerHigh, Eye, Pulse } from '@phosphor-icons/react'
 import { AppButton } from './AppButton'
-import { chrome } from './AppChrome'
+import { FloorPlanProcessor } from '../services/floorplanProcessor'
 
 interface ProcessingStep {
   id: string
@@ -12,16 +12,70 @@ interface ProcessingStep {
   estimatedTime?: string
 }
 
+interface UploadedFile {
+  id: string
+  file: File
+  preview: string
+  type: 'photo' | 'floorplan'
+}
+
 interface Props {
   roomName: string
   fileCount: number
+  uploadedFiles: UploadedFile[]
   onComplete: (roomSlug: string) => void
   onCancel?: () => void
 }
 
-export function ProcessingInterface({ roomName, fileCount, onComplete, onCancel }: Props) {
+export function ProcessingInterface({ roomName, fileCount, uploadedFiles, onComplete, onCancel }: Props) {
   const [, setCurrentStepIndex] = useState(0)
-  const [steps, setSteps] = useState<ProcessingStep[]>([
+  const [generatedWorldSlug, setGeneratedWorldSlug] = useState<string | null>(null)
+  
+  // Check if we have floor plans to determine processing pipeline
+  const hasFloorPlans = uploadedFiles.some(file => file.type === 'floorplan')
+  
+  const [steps, setSteps] = useState<ProcessingStep[]>(hasFloorPlans ? [
+    {
+      id: 'upload',
+      title: 'Uploading Floor Plans',
+      description: 'Sending your floor plan to our processing servers',
+      status: 'running',
+      icon: <Globe size={20} />,
+      estimatedTime: '30s'
+    },
+    {
+      id: 'floorplan-analysis',
+      title: 'Analyzing Floor Plan',
+      description: 'Understanding room layout and architectural elements',
+      status: 'pending',
+      icon: <Eye size={20} />,
+      estimatedTime: '1-2 min'
+    },
+    {
+      id: 'room-generation',
+      title: 'Generating Room Images',
+      description: 'Creating realistic room visuals from floor plan using AI',
+      status: 'pending',
+      icon: <Gear size={20} />,
+      estimatedTime: '3-4 min'
+    },
+    {
+      id: 'world',
+      title: 'Building 3D Environment',
+      description: 'Converting generated images to walkable 3D space',
+      status: 'pending',
+      icon: <Cube size={20} />,
+      estimatedTime: '4-5 min'
+    },
+    {
+      id: 'audio',
+      title: 'Adding Ambient Sounds',
+      description: 'Generating room-appropriate audio atmosphere',
+      status: 'pending',
+      icon: <SpeakerHigh size={20} />,
+      estimatedTime: '1-2 min'
+    }
+  ] : [
     {
       id: 'upload',
       title: 'Uploading Images',
@@ -64,180 +118,204 @@ export function ProcessingInterface({ roomName, fileCount, onComplete, onCancel 
     }
   ])
 
-  // Simulate processing steps
+  // Process the uploaded files based on type
   useEffect(() => {
     const processSteps = async () => {
-      for (let i = 0; i < steps.length; i++) {
-        // Update current step to running
-        setCurrentStepIndex(i)
+      try {
+        for (let i = 0; i < steps.length; i++) {
+          // Update current step to running
+          setCurrentStepIndex(i)
+          setSteps(prev => prev.map((step, index) => ({
+            ...step,
+            status: index === i ? 'running' : index < i ? 'completed' : 'pending'
+          })))
+
+          const currentStep = steps[i]
+          
+          // Handle different processing steps
+          if (hasFloorPlans) {
+            switch (currentStep.id) {
+              case 'upload':
+                // Simulate file upload
+                await new Promise(resolve => setTimeout(resolve, 2000))
+                break
+                
+              case 'floorplan-analysis':
+                // Analyze floor plan structure
+                await new Promise(resolve => setTimeout(resolve, 3000))
+                break
+                
+              case 'room-generation':
+                // Generate realistic room images from floor plan
+                console.log('🏠 Starting floor plan to room image generation...')
+                const floorPlanResult = await FloorPlanProcessor.processFloorPlanToWorld({
+                  uploadedFiles,
+                  roomName
+                })
+                
+                if (!floorPlanResult.success) {
+                  console.error('Floor plan processing failed:', floorPlanResult.error)
+                  // Continue anyway for demo purposes
+                }
+                console.log('✅ Generated room images:', floorPlanResult.roomImages)
+                console.log('🌍 World generation status:', floorPlanResult.worldGenerated)
+                
+                // Store the generated world slug
+                if (floorPlanResult.worldSlug) {
+                  setGeneratedWorldSlug(floorPlanResult.worldSlug)
+                }
+                break
+                
+              case 'world':
+                // Convert generated images to 3D environment
+                await new Promise(resolve => setTimeout(resolve, 4000))
+                break
+                
+              case 'audio':
+                // Generate ambient audio
+                await new Promise(resolve => setTimeout(resolve, 2000))
+                break
+            }
+          } else {
+            // Regular photo processing pipeline
+            switch (currentStep.id) {
+              case 'upload':
+                await new Promise(resolve => setTimeout(resolve, 2000))
+                break
+                
+              case 'analysis':
+                console.log('📸 Processing regular photos...')
+                const photoResult = await FloorPlanProcessor.processRegularPhotos({
+                  uploadedFiles,
+                  roomName
+                })
+                
+                if (!photoResult.success) {
+                  console.error('Photo processing failed:', photoResult.error)
+                }
+                break
+                
+              case 'world':
+                await new Promise(resolve => setTimeout(resolve, 5000))
+                break
+                
+              case 'objects':
+                await new Promise(resolve => setTimeout(resolve, 4000))
+                break
+                
+              case 'audio':
+                await new Promise(resolve => setTimeout(resolve, 2000))
+                break
+            }
+          }
+
+          // Mark step as completed
+          setSteps(prev => prev.map((step, index) => ({
+            ...step,
+            status: index <= i ? 'completed' : 'pending'
+          })))
+        }
+
+        // All steps completed, use generated world slug or fallback
+        const roomSlug = generatedWorldSlug || roomName.toLowerCase()
+          .replace(/[^a-z0-9\s]/gi, '')
+          .replace(/\s+/g, '-')
+          .slice(0, 30)
+        
+        console.log('🎯 Completing processing with world slug:', roomSlug)
+        
+        // Small delay before completing
+        setTimeout(() => onComplete(roomSlug), 1000)
+        
+      } catch (error) {
+        console.error('Processing error:', error)
+        // Mark current step as error
         setSteps(prev => prev.map((step, index) => ({
           ...step,
-          status: index === i ? 'running' : index < i ? 'completed' : 'pending'
-        })))
-
-        // Simulate processing time
-        const baseTime = [2000, 4000, 6000, 5000, 3000][i] // Different times for each step
-        const randomVariation = Math.random() * 2000 + 1000
-        const totalTime = baseTime + randomVariation
-
-        await new Promise(resolve => setTimeout(resolve, totalTime))
-
-        // Mark step as completed
-        setSteps(prev => prev.map((step, index) => ({
-          ...step,
-          status: index <= i ? 'completed' : 'pending'
+          status: step.status === 'running' ? 'error' : step.status
         })))
       }
-
-      // All steps completed, generate room slug and navigate
-      const roomSlug = roomName.toLowerCase()
-        .replace(/[^a-z0-9\s]/gi, '')
-        .replace(/\s+/g, '-')
-        .slice(0, 30)
-      
-      // Small delay before completing
-      setTimeout(() => onComplete(roomSlug), 1000)
     }
 
     processSteps()
-  }, [roomName, onComplete])
+  }, [roomName, onComplete, hasFloorPlans, steps, uploadedFiles])
 
-  const totalEstimatedTime = "8-13 minutes"
+  const totalEstimatedTime = hasFloorPlans ? "9-14 minutes" : "8-13 minutes"
   const completedSteps = steps.filter(step => step.status === 'completed').length
   const progressPercentage = (completedSteps / steps.length) * 100
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-      <div className={`${chrome.enter} w-full max-w-2xl`}>
-        {/* Header */}
-        <div className={`${chrome.bar} px-6 py-4`}>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold font-mono">Creating your 3D room...</h1>
-              <p className="text-white/60 text-sm mt-1">
-                {roomName} • {fileCount} images • Est. {totalEstimatedTime}
-              </p>
-            </div>
+    <div className="min-h-screen px-4 py-8 md:px-6">
+      <div className="mx-auto w-full max-w-3xl rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 md:p-6">
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold">
+              {hasFloorPlans ? 'Converting floor plan to 3D room' : 'Building your 3D room'}
+            </h1>
+            <p className="mt-1 text-sm text-[var(--text-2)]">
+              {roomName} • {fileCount} {hasFloorPlans ? 'floor plan' : 'images'}{fileCount !== 1 ? 's' : ''} • {totalEstimatedTime}
+            </p>
+          </div>
+          <div className="text-right text-xs text-[var(--text-3)]">
+            <p>{Math.round(progressPercentage)}%</p>
+            <p>{completedSteps}/{steps.length}</p>
           </div>
         </div>
 
-        <div className={`${chrome.panel} p-6`}>
-          {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-white/80">
-                Progress
-              </span>
-              <span className="text-sm text-white/60">
-                {completedSteps} of {steps.length} steps
-              </span>
-            </div>
-            <div className="w-full bg-white/10 rounded-full h-2">
-              <div 
-                className="bg-white h-2 rounded-full transition-all duration-1000 ease-out"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
-          </div>
+        <div className="mb-4 h-2 w-full rounded-full bg-black/35">
+          <div
+            className="h-2 rounded-full bg-[var(--accent)] transition-all duration-1000 ease-out"
+            style={{ width: `${progressPercentage}%` }}
+          />
+        </div>
 
-          {/* Processing Steps */}
-          <div className="space-y-4">
-            {steps.map((step) => (
-              <div 
-                key={step.id} 
-                className={`
-                  flex items-start gap-4 p-4 rounded-lg transition-all duration-300
-                  ${step.status === 'running' 
-                    ? 'bg-white/10 border border-white/20' 
-                    : step.status === 'completed'
-                    ? 'bg-green-500/10 border border-green-500/30'
-                    : 'bg-white/5 border border-white/10'
-                  }
-                `}
-              >
-                {/* Icon */}
-                <div className={`
-                  flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center
-                  ${step.status === 'running'
-                    ? 'bg-white/20 text-white animate-pulse'
-                    : step.status === 'completed'
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'bg-white/10 text-white/40'
-                  }
-                `}>
+        <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+          {steps.map((step, index) => (
+            <div
+              key={step.id}
+              className={`rounded-lg border p-3 ${
+                step.status === 'running'
+                  ? 'border-[var(--accent)]/55 bg-black/35'
+                  : step.status === 'completed'
+                    ? 'border-emerald-400/35 bg-emerald-500/10'
+                    : 'border-[var(--line)] bg-black/15'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 text-[var(--text-2)]">
                   {step.status === 'completed' ? (
-                    <CheckCircle size={20} weight="fill" />
+                    <CheckCircle size={18} weight="fill" className="text-emerald-300" />
                   ) : step.status === 'running' ? (
-                    <div className="animate-spin">
-                      {step.icon}
-                    </div>
+                    <Pulse size={18} className="animate-pulse text-[var(--accent)]" />
                   ) : (
                     step.icon
                   )}
                 </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className={`
-                      font-medium
-                      ${step.status === 'completed' 
-                        ? 'text-green-400' 
-                        : step.status === 'running'
-                        ? 'text-white'
-                        : 'text-white/60'
-                      }
-                    `}>
-                      {step.title}
-                    </h3>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-0.5 flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-medium">{index + 1}. {step.title}</h3>
                     {step.status === 'running' && step.estimatedTime && (
-                      <div className="flex items-center gap-1 text-xs text-white/60">
-                        <Clock size={12} />
+                      <span className="inline-flex items-center gap-1 text-xs text-[var(--text-3)]">
+                        <Clock size={11} />
                         {step.estimatedTime}
-                      </div>
+                      </span>
                     )}
                   </div>
-                  <p className={`
-                    text-sm
-                    ${step.status === 'completed' 
-                      ? 'text-green-400/80' 
-                      : step.status === 'running'
-                      ? 'text-white/80'
-                      : 'text-white/40'
-                    }
-                  `}>
-                    {step.description}
-                  </p>
+                  <p className="text-sm text-[var(--text-2)]">{step.description}</p>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Tips while waiting */}
-          <div className="mt-8 p-4 bg-white/5 rounded-lg">
-            <h3 className="text-sm font-medium text-white/80 mb-2">
-              While you wait...
-            </h3>
-            <div className="text-sm text-white/60 space-y-1">
-              <p>• We're using AI to reconstruct your room in full 3D</p>
-              <p>• Each photo helps us understand different angles and details</p>
-              <p>• The result will be a fully explorable 3D environment</p>
-              <p>• You'll be able to walk around and interact with objects</p>
             </div>
-          </div>
-
-          {/* Cancel Button */}
-          {onCancel && (
-            <div className="mt-6 flex justify-center">
-              <AppButton
-                onClick={onCancel}
-                className="px-6 py-2 text-white/60 hover:text-white border border-white/20 hover:border-white/30"
-              >
-                Cancel Processing
-              </AppButton>
-            </div>
-          )}
+          ))}
         </div>
+
+        {onCancel && (
+          <AppButton
+            onClick={onCancel}
+            className="mt-4 w-full justify-center rounded-lg border border-[var(--line)] bg-black/25 py-2 text-[var(--text-2)] hover:bg-black/40"
+          >
+            Cancel run
+          </AppButton>
+        )}
       </div>
     </div>
   )
