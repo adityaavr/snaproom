@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(snaproom-project)",
+      "Skill(snaproom-uncover)",
+      "Skill(snaproom-world)",
+      "Skill(snaproom-3d)",
+      "Skill(snaproom-sfx)",
+      "Skill(snaproom-plate)",
+      "Skill(snaproom-image-edit)",
+      "Skill(snaproom-wildcard)",
+      "Bash(ls:*)",
+      "Bash(node .claude/scripts/**:*)",
+      "Bash(node .claude/scripts/project/show-url.mjs:*)",
+      "Bash(bun install:*)",
+      "Bash(bun run dev:*)",
+      "Bash(lsof:*)",
+      "Bash(mkdir:*)",
+      "Bash(cd:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/setup-check.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/input-check.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

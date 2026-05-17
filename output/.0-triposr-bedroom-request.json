@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "kind": "fal-wildcard",
+  "provider": "fal-ai/triposr",
+  "endpoint": "fal-ai/triposr",
+  "mode": "queue",
+  "index": 0,
+  "output_slug": "triposr-bedroom",
+  "input": {
+    "remove_background": true,
+    "mesh_resolution": 256,
+    "output_format": "glb",
+    "image_url": "[stripped]"
+  },
+  "request_id": "019e2f64-342d-74b2-bb39-c335db1fb3a7",
+  "status": "completed",
+  "submitted_at": "2026-05-16T06:05:53.428Z",
+  "status_url": "https://queue.fal.run/fal-ai/triposr/requests/019e2f64-342d-74b2-bb39-c335db1fb3a7/status",
+  "response_url": "https://queue.fal.run/fal-ai/triposr/requests/019e2f64-342d-74b2-bb39-c335db1fb3a7",
+  "updated_at": "2026-05-16T06:07:41.040Z",
+  "checked_at": "2026-05-16T06:07:40.814Z",
+  "queue_status": {
+    "status": "COMPLETED",
+    "request_id": "019e2f64-342d-74b2-bb39-c335db1fb3a7",
+    "response_url": "https://queue.fal.run/fal-ai/triposr/requests/019e2f64-342d-74b2-bb39-c335db1fb3a7",
+    "status_url": "https://queue.fal.run/fal-ai/triposr/requests/019e2f64-342d-74b2-bb39-c335db1fb3a7/status",
+    "cancel_url": "https://queue.fal.run/fal-ai/triposr/requests/019e2f64-342d-74b2-bb39-c335db1fb3a7/cancel",
+    "logs": [
+      {
+        "timestamp": "2026-05-16T06:07:35.983926+00:00",
+        "message": "INFO:     100.116.50.108:43923 - \"POST / HTTP/1.1\" 200 OK",
+        "labels": {
+          "fal_endpoint": "fal-ai/triposr",
+          "fal_region": "us-central",
+          "fal_public_logs": "1",
+          "alloc_id": "f8851ca4-2ae8-217a-bd1e-08d3fe68431f",
+          "app": "github_110602490-triposr",
+          "fal_node_id": "cd515113-9dea-7bbd-344a-8801c521d9ed",
+          "fal_job_id": "224f63ae-1f67-4e81-99d6-572e3d9b1378",
+          "isolate_source": "USER",
+          "level": "INFO",
+          "logged_at": "2026-05-16T06:07:35.983926+00:00",
+          "fal_user_nickname": "fal-ai",
+          "fal_request_id": "019e2f64-342d-74b2-bb39-c335db1fb3a7",
+          "fal_worker_id": "fal-jobs/GPU-A6000/224f63ae-1f67-4e81-99d6-572e3d9b1378",
+          "message": "INFO:     100.116.50.108:43923 - \"POST / HTTP/1.1\" 200 OK",
+          "fal_env": "prod",
+          "app_id": "e398d0a4-2830-46fb-a3fa-d5a6e8b1d434",
+          "source": "gateway",
+          "fal_dc": "quasar-desmoines-usa-1",
+          "fal_multiplexing_app": "1"
+        }
+      }
+    ],
+    "metrics": {
+      "inference_time": 8.389620065689087
+    }
+  },
+  "completed_at": "2026-05-16T06:07:43.045Z",
+  "result": {
+    "model_mesh": {
+      "url": "https://v3b.fal.media/files/b/0a9a675d/PCUgwARcm8HmVpwGFxsgv_model.glb",
+      "content_type": "application/octet-stream",
+      "file_name": "model.glb",
+      "file_size": 858576
+    },
+    "timings": {
+      "prepare": 6.163248542696238,
+      "generation": 0.05374961905181408,
+      "export": 0.6699066758155823
+    },
+    "remeshing_dir": null
+  },
+  "input_files": [],
+  "output_files": [
+    "/Users/aditya/codenoic/snaproomer/output/0-triposr-bedroom.glb"
+  ],
+  "downloaded_files": [
+    {
+      "label": "model_mesh",
+      "path": "/Users/aditya/codenoic/snaproomer/output/0-triposr-bedroom.glb",
+      "source": {
+        "url": "https://v3b.fal.media/files/b/0a9a675d/PCUgwARcm8HmVpwGFxsgv_model.glb",
+        "content_type": "application/octet-stream",
+        "file_name": "model.glb",
+        "file_size": 858576
+      }
+    }
+  ],
+  "error": null
+}
