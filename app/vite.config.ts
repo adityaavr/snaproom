@@ -777,7 +777,10 @@ function worldsPlugin(): Plugin {
             console.log(`🌍 Starting ${isFloorplan ? 'floor plan -> world' : 'world'} generation for ${roomName}...`)
             console.log(`Command: node ${scriptPath} --world ${worldSlug} --image input/${filename} --prompt "${prompt}"`)
             
-            // Run the world generation script
+            // Run generation detached so it survives dev-server restarts —
+            // these jobs take minutes. Output is appended to a per-world log;
+            // the worlds/ file-watcher refreshes the viewer when assets land.
+            const logFd = fs.openSync(path.join(worldDir, '.generation.log'), 'a')
             const child = spawn('node', [
               scriptPath,
               '--world', worldSlug,
@@ -785,34 +788,11 @@ function worldsPlugin(): Plugin {
               '--prompt', prompt
             ], {
               cwd: repoRoot,
-              stdio: ['inherit', 'pipe', 'pipe']
+              detached: true,
+              stdio: ['ignore', logFd, logFd]
             })
-            
-            let output = ''
-            let errorOutput = ''
-            
-            child.stdout?.on('data', (data) => {
-              const text = data.toString()
-              output += text
-              console.log(text)
-            })
-            
-            child.stderr?.on('data', (data) => {
-              const text = data.toString()
-              errorOutput += text
-              console.error(text)
-            })
-            
-            child.on('close', (code) => {
-              if (code === 0) {
-                console.log(`✅ World generation completed for ${worldSlug}`)
-                // Trigger world reload
-                notifyWorldsChanged(server)
-              } else {
-                console.error(`❌ World generation failed with code ${code}`)
-                console.error('Error output:', errorOutput)
-              }
-            })
+            child.unref()
+            fs.closeSync(logFd)
             
             // Return immediately without waiting for completion
             res.statusCode = 200
@@ -829,7 +809,7 @@ function worldsPlugin(): Plugin {
           } catch (error) {
             console.error('Upload and generation error:', error)
             res.statusCode = 500
-            res.end(`Upload failed: ${error.message}`)
+            res.end(`Upload failed: ${error instanceof Error ? error.message : String(error)}`)
           }
         })
       })
@@ -986,6 +966,10 @@ function worldsPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [react(), worldsPlugin()],
+  // Load .env from the repo root — one shared env file for the whole project.
+  // Only VITE_-prefixed vars reach the browser (e.g. the semantic layer's
+  // VITE_GOOGLE_GEMINI_KEY); WORLD_LABS_API_KEY / FAL_KEY stay server-only.
+  envDir: '..',
   // `host: true` binds the dev server to the LAN so a phone can scan the
   // AR QR code and reach this viewer over Wi-Fi. `allowedHosts: true` lets a
   // public tunnel domain (ngrok / cloudflared) through Vite's host check so

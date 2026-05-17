@@ -28,7 +28,8 @@
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "NSMotionUsageDescription": "Allow Snaproom to use device motion so you can look around the scene by moving your phone."
       },
       "appleTeamId": "67YW8GJG98"
     },

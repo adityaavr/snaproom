@@ -11,6 +11,9 @@ import {
   ArrowsOut,
   Question,
   DeviceMobile,
+  Tag,
+  Scan,
+  Trash,
   type Icon,
 } from '@phosphor-icons/react'
 import { AppButton } from './AppButton'
@@ -18,6 +21,8 @@ import { ArQrModal } from './ArQrModal'
 import { ViewerModeHotkeys, OBJECT_MODES, WORLD_MODES } from './BottomLeftControls'
 import { useAudioStore } from '../store/audio'
 import { useDebugStore, type ControllerMode } from '../store/debug'
+import { useSemanticStore } from '../store/semantic'
+import { clearSemanticLayer } from '../features/semantic-labels/semanticStorage'
 import { ViewerQuality } from '../types/world'
 
 interface Props {
@@ -106,6 +111,7 @@ export function RoomExplorer({
   const setWorldRenderMode = useDebugStore((s) => s.setWorldRenderMode)
   const objectRenderMode = useDebugStore((s) => s.objectRenderMode)
   const setObjectRenderMode = useDebugStore((s) => s.setObjectRenderMode)
+  const { labelsVisible, toggleLabels, scanStatus, doTriggerScan, clearAnchors, anchors } = useSemanticStore()
 
   const currentControllerMode = CONTROLLER_MODES.find(item => item.mode === controllerMode) ?? CONTROLLER_MODES[0]
   const currentQuality = QUALITY_MODES.find(item => item.mode === viewerQuality) ?? QUALITY_MODES[0]
@@ -129,8 +135,12 @@ export function RoomExplorer({
       case 'q':
         setViewerQuality(nextMode(QUALITY_MODES, viewerQuality))
         break
+      case 'l':
+        if (e.shiftKey) doTriggerScan()
+        else toggleLabels()
+        break
     }
-  }, [controllerMode, viewerQuality, setControllerMode, setViewerQuality, toggleMuted])
+  }, [controllerMode, viewerQuality, setControllerMode, setViewerQuality, toggleMuted, toggleLabels, doTriggerScan])
 
   React.useEffect(() => {
     window.addEventListener('keydown', handleKeyPress)
@@ -167,6 +177,20 @@ export function RoomExplorer({
                 View in AR
               </AppButton>
             )}
+
+            <AppButton
+              onClick={doTriggerScan}
+              disabled={scanStatus === 'scanning'}
+              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-white backdrop-blur-sm ${
+                scanStatus === 'scanning'
+                  ? 'border-cyan-400/50 bg-cyan-500/10 text-cyan-200'
+                  : 'border-[var(--line)] bg-black/45 hover:bg-black/70'
+              }`}
+              title="Scan the room for semantic labels"
+            >
+              <Scan size={16} className={scanStatus === 'scanning' ? 'animate-pulse text-cyan-300' : ''} />
+              <span className="hidden sm:inline">{scanStatus === 'scanning' ? 'Scanning…' : 'Scan Room'}</span>
+            </AppButton>
 
             <AppButton
               onClick={onNewRoom}
@@ -226,6 +250,31 @@ export function RoomExplorer({
           >
             <Question size={16} />
           </AppButton>
+
+          {/* Semantic labels */}
+          <AppButton
+            onClick={toggleLabels}
+            className={`flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-black/45 px-3 py-2 text-sm backdrop-blur-sm hover:bg-black/70 ${
+              labelsVisible ? 'text-cyan-300' : 'text-white'
+            }`}
+            title={labelsVisible ? 'Hide labels' : 'Show labels'}
+          >
+            <Tag size={16} weight={labelsVisible ? 'fill' : 'regular'} />
+            {anchors.length > 0 && <span>{anchors.length}</span>}
+          </AppButton>
+
+          {anchors.length > 0 && (
+            <AppButton
+              onClick={() => {
+                clearAnchors()
+                clearSemanticLayer(roomSlug)
+              }}
+              className="rounded-lg border border-red-500/30 bg-black/45 p-2 text-red-300 backdrop-blur-sm hover:bg-red-500/15"
+              title="Clear all labels"
+            >
+              <Trash size={16} />
+            </AppButton>
+          )}
 
           <div className="hidden h-7 w-px bg-[var(--line)] sm:block" />
 
@@ -319,6 +368,14 @@ export function RoomExplorer({
                   <div className="flex justify-between">
                     <span>U</span>
                     <span>Toggle UI</span>
+                  </div>
+                  <div className="flex justify-between text-cyan-300/80">
+                    <span>L</span>
+                    <span>Toggle labels</span>
+                  </div>
+                  <div className="flex justify-between text-cyan-300/80">
+                    <span>Shift + L</span>
+                    <span>Scan room</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Shift + 1/2/3</span>

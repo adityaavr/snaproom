@@ -33,7 +33,14 @@
       "Bash(break)",
       "Bash(brew install *)",
       "Bash(cloudflared --version)",
-      "Bash(cloudflared tunnel *)"
+      "Bash(cloudflared tunnel *)",
+      "Bash(git show *)",
+      "Bash(git checkout *)",
+      "Bash(plutil -extract NSMotionUsageDescription raw /Users/basil/Library/Developer/Xcode/DerivedData/Snaproom-ecbkgxwjncmkercsjnojoniawehh/Build/Products/Debug-iphoneos/Snaproom.app/Info.plist)",
+      "Bash(ngrok http *)",
+      "Bash(curl -s --max-time 8 http://localhost:4040/api/tunnels)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(t['public_url']\\) for t in d.get\\('tunnels',[]\\)]\")",
+      "Bash(curl -s --max-time 15 -A 'Mozilla/5.0 \\(iPhone\\)' -H 'Accept: text/html' https://8c26-128-106-119-174.ngrok-free.app/)"
     ]
   }
 }
