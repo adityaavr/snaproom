@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { CheckCircle, Clock, Gear, Globe, Cube, SpeakerHigh, Eye, Pulse } from '@phosphor-icons/react'
 import { AppButton } from './AppButton'
+import { generateWorldInBrowser } from '../services/worldGenerationClient'
+import { useSessionWorlds } from '../store/sessionWorlds'
 
 interface ProcessingStep {
   id: string
@@ -37,50 +39,10 @@ function slugifyRoomName(value: string): string {
   )
 }
 
-/**
- * Read a File as base64 with no data-URI prefix. FileReader is used instead of
- * btoa(String.fromCharCode(...bytes)) because the spread overflows the call
- * stack on multi-MB images.
- */
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : ''
-      resolve(result.slice(result.indexOf(',') + 1))
-    }
-    reader.onerror = () => reject(reader.error ?? new Error('Could not read file'))
-    reader.readAsDataURL(file)
-  })
-}
-
-/**
- * Trigger world generation via the dev-server endpoint. A photo goes straight
- * to World Labs; a floor plan is first rendered into a photoreal interior by
- * FAL, then handed to World Labs. Throws on failure — no silent fallback.
- */
-async function requestWorldGeneration(
-  file: File,
-  roomName: string,
-  worldSlug: string,
-  isFloorplan: boolean,
-) {
-  const data = await fileToBase64(file)
-  const response = await fetch('/__upload-and-generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filename: file.name, data, roomName, worldSlug, isFloorplan }),
-  })
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    throw new Error(`World generation request failed (${response.status}). ${detail}`.trim())
-  }
-  return (await response.json()) as { worldSlug: string; command?: string }
-}
-
 export function ProcessingInterface({ roomName, fileCount, uploadedFiles, onComplete, onCancel }: Props) {
   const [, setCurrentStepIndex] = useState(0)
   const startedRef = useRef(false)
+  const addWorld = useSessionWorlds((s) => s.addWorld)
 
   // Check if we have floor plans to determine processing pipeline
   const hasFloorPlans = uploadedFiles.some(file => file.type === 'floorplan')
@@ -194,8 +156,15 @@ export function ProcessingInterface({ roomName, fileCount, uploadedFiles, onComp
         `🌍 Generating world "${worldSlug}" from ${primary.file.name}` +
           (isFloorplan ? ' (floor plan → FAL interior → World Labs)…' : ' via World Labs…'),
       )
-      const result = await requestWorldGeneration(primary.file, roomName, worldSlug, isFloorplan)
-      console.log('✅ Generation started:', result.command ?? worldSlug)
+      const entry = await generateWorldInBrowser({
+        file: primary.file,
+        roomName,
+        worldSlug,
+        isFloorplan,
+        onProgress: (progress) => console.log(`🌍 ${progress.stage}: ${progress.message}`),
+      })
+      addWorld(entry)
+      console.log('✅ World generated:', worldSlug)
     }
 
     const processSteps = async () => {

@@ -102,7 +102,7 @@ describe('worldLoader', () => {
     expect(getSplatUrl(world)).toBe('')
   })
 
-  it('getSplatUrl refuses provider URLs', () => {
+  it('getSplatUrl accepts provider URLs for browser-generated worlds', () => {
     const world = {
       ...exampleWorld,
       assets: {
@@ -113,6 +113,6 @@ describe('worldLoader', () => {
         },
       },
     }
-    expect(getSplatUrl(world)).toBe('')
+    expect(getSplatUrl(world)).toBe('https://cdn.example.com/splat_full.spz')
   })
 })
