@@ -16,7 +16,7 @@ import { OriginHelper } from '../modules/scene/OriginHelper'
 import { AudioManager } from '../modules/audio/AudioManager'
 import { PostProcessing } from '../modules/postprocessing/PostProcessing'
 import { DEFAULT_SHADOW_CATCHER_COLOR, DEFAULT_SHADOW_CATCHER_OPACITY, shadowCatcherColor, shadowCatcherOpacity } from '../modules/scene/shadows'
-import { getSplatUrl } from '../utils/worldLoader'
+import { getSplatUrl, usableAssetUrl } from '../utils/worldLoader'
 import { useDebugStore } from '../store/debug'
 import { WorldRenderMode, ObjectRenderMode, ViewerQuality, type Vec3Tuple, type World, type WorldHoverPreview, type WorldObjectAsset, type WorldSceneProject } from '../types/world'
 import { AppButton } from './AppButton'
@@ -154,12 +154,8 @@ export function WorldViewer({
   const sunIntensity = useDebugStore((s) => s.sunIntensity)
   const sunColor = useDebugStore((s) => s.sunColor)
   const [sourceThumbnailCollapsed, setSourceThumbnailCollapsed] = useState(false)
-  const colliderUrl = desiredWorld?.assets.mesh.collider_mesh_url.startsWith('/worlds/')
-    ? desiredWorld.assets.mesh.collider_mesh_url
-    : ''
-  const panoUrl = desiredWorld?.assets.imagery.pano_url.startsWith('/worlds/')
-    ? desiredWorld.assets.imagery.pano_url
-    : ''
+  const colliderUrl = usableAssetUrl(desiredWorld?.assets.mesh.collider_mesh_url)
+  const panoUrl = usableAssetUrl(desiredWorld?.assets.imagery.pano_url)
 
   useEffect(() => {
     charRef.current?.reset()

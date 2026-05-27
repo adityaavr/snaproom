@@ -711,7 +711,121 @@ function worldsPlugin(): Plugin {
         res.setHeader('Content-Type', 'application/json')
         res.end(JSON.stringify(readWorlds()))
       })
-      
+
+      // Dev mirror of the Vercel serverless proxies in app/api/. Lets
+      // `bun run dev` exercise the exact same /api/* path the hosted build
+      // uses for browser-direct world generation. Keys come from repo .env.
+      function readEnvFile(): Record<string, string> {
+        const env: Record<string, string> = {}
+        try {
+          const contents = fs.readFileSync(path.join(repoRoot, '.env'), 'utf8')
+          for (const rawLine of contents.split(/\r?\n/)) {
+            const line = rawLine.trim()
+            if (!line || line.startsWith('#')) continue
+            const eq = line.indexOf('=')
+            if (eq === -1) continue
+            let value = line.slice(eq + 1).trim()
+            if (
+              (value.startsWith('"') && value.endsWith('"')) ||
+              (value.startsWith("'") && value.endsWith("'"))
+            ) {
+              value = value.slice(1, -1)
+            }
+            env[line.slice(0, eq).trim()] = value
+          }
+        } catch {
+          /* no .env — fall through to process.env */
+        }
+        return env
+      }
+
+      function envKey(name: string): string | undefined {
+        return process.env[name] || readEnvFile()[name]
+      }
+
+      function readRequestBody(req: import('http').IncomingMessage): Promise<string> {
+        return new Promise((resolve) => {
+          let body = ''
+          req.setEncoding('utf-8')
+          req.on('data', (chunk) => {
+            body += chunk
+          })
+          req.on('end', () => resolve(body))
+        })
+      }
+
+      server.middlewares.use('/api/worldlabs', async (req, res) => {
+        const sendJson = (status: number, text: string) => {
+          res.statusCode = status
+          res.setHeader('Content-Type', 'application/json')
+          res.end(text)
+        }
+        const apiKey = envKey('WORLD_LABS_API_KEY')
+        if (!apiKey) return sendJson(500, JSON.stringify({ error: 'WORLD_LABS_API_KEY is not set in .env' }))
+        try {
+          if (req.method === 'POST') {
+            const body = await readRequestBody(req)
+            const upstream = await fetch('https://api.worldlabs.ai/marble/v1/worlds:generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'WLT-Api-Key': apiKey },
+              body,
+            })
+            return sendJson(upstream.status, (await upstream.text()) || '{}')
+          }
+          if (req.method === 'GET') {
+            const id = new URL(req.url || '/', 'http://localhost').searchParams.get('id') || ''
+            if (!id) return sendJson(400, JSON.stringify({ error: 'Missing operation id.' }))
+            const upstream = await fetch(
+              `https://api.worldlabs.ai/marble/v1/operations/${encodeURIComponent(id)}`,
+              { headers: { 'WLT-Api-Key': apiKey } },
+            )
+            return sendJson(upstream.status, (await upstream.text()) || '{}')
+          }
+          return sendJson(405, JSON.stringify({ error: 'Method not allowed.' }))
+        } catch (error) {
+          return sendJson(502, JSON.stringify({ error: `World Labs proxy error: ${error instanceof Error ? error.message : String(error)}` }))
+        }
+      })
+
+      server.middlewares.use('/api/fal', async (req, res) => {
+        const sendJson = (status: number, text: string) => {
+          res.statusCode = status
+          res.setHeader('Content-Type', 'application/json')
+          res.end(text)
+        }
+        const falKey = envKey('FAL_KEY')
+        if (!falKey) return sendJson(500, JSON.stringify({ error: 'FAL_KEY is not set in .env' }))
+        if (req.method !== 'POST') return sendJson(405, JSON.stringify({ error: 'Method not allowed.' }))
+        try {
+          const body = JSON.parse((await readRequestBody(req)) || '{}')
+          if (body.mode === 'submit') {
+            if (!body.endpoint) return sendJson(400, JSON.stringify({ error: 'Missing endpoint.' }))
+            const upstream = await fetch(`https://queue.fal.run/${body.endpoint}`, {
+              method: 'POST',
+              headers: { Authorization: `Key ${falKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify(body.input ?? {}),
+            })
+            return sendJson(upstream.status, (await upstream.text()) || '{}')
+          }
+          if (body.mode === 'poll') {
+            let parsed: URL
+            try {
+              parsed = new URL(String(body.url))
+            } catch {
+              return sendJson(400, JSON.stringify({ error: 'Invalid url.' }))
+            }
+            if (!['queue.fal.run', 'fal.run'].includes(parsed.host)) {
+              return sendJson(400, JSON.stringify({ error: 'Disallowed host.' }))
+            }
+            const upstream = await fetch(parsed.toString(), { headers: { Authorization: `Key ${falKey}` } })
+            return sendJson(upstream.status, (await upstream.text()) || '{}')
+          }
+          return sendJson(400, JSON.stringify({ error: 'Unknown mode.' }))
+        } catch (error) {
+          return sendJson(502, JSON.stringify({ error: `FAL proxy error: ${error instanceof Error ? error.message : String(error)}` }))
+        }
+      })
+
       server.middlewares.use('/__upload-and-generate', (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405

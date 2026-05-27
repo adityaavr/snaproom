@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRoute, useLocation, Redirect } from 'wouter'
 import { WorldViewer } from './components/WorldViewer'
 import { WorldSidebar } from './components/WorldSidebar'
@@ -11,6 +11,7 @@ import { RoomExplorer } from './components/RoomExplorer'
 import { CleanWorldViewer } from './components/CleanWorldViewer'
 import { useSceneProject } from './modules/scene/useSceneProject'
 import { fetchWorlds, loadWorlds } from './utils/worldLoader'
+import { useSessionWorlds } from './store/sessionWorlds'
 import { useDebugStore } from './store/debug'
 import { isEditableTarget } from './utils/dom'
 import type { WorldEntry, WorldHoverPreview, WorldObjectAsset } from './types/world'
@@ -41,7 +42,16 @@ function isWorldReady(entry: WorldEntry | undefined): boolean {
 }
 
 export function App() {
-  const [worlds, setWorlds] = useState(loadWorlds)
+  const [baseWorlds, setBaseWorlds] = useState(loadWorlds)
+  const sessionWorlds = useSessionWorlds((s) => s.worlds)
+  // Build-time committed worlds, with browser-generated session worlds merged
+  // on top (a session world wins if it shares a slug).
+  const worlds = useMemo(() => {
+    if (sessionWorlds.length === 0) return baseWorlds
+    const bySlug = new Map(baseWorlds.map((w) => [w.slug, w]))
+    for (const w of sessionWorlds) bySlug.set(w.slug, w)
+    return Array.from(bySlug.values())
+  }, [baseWorlds, sessionWorlds])
   const [refreshingWorlds, setRefreshingWorlds] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [roomName, setRoomName] = useState('')
@@ -98,7 +108,7 @@ export function App() {
     if (!import.meta.env.DEV) return
     setRefreshingWorlds(true)
     try {
-      setWorlds(await fetchWorlds())
+      setBaseWorlds(await fetchWorlds())
     } catch (error) {
       console.warn('Could not refresh local world assets.', error)
     } finally {

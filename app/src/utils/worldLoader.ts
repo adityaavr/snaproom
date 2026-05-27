@@ -13,11 +13,18 @@ export async function fetchWorlds(): Promise<WorldEntry[]> {
   return response.json() as Promise<WorldEntry[]>
 }
 
-function localWorldAssetUrl(url: string | undefined): string {
-  return url?.startsWith('/worlds/') ? url : ''
+/**
+ * A renderable asset URL. Committed worlds use local `/worlds/...` paths;
+ * browser-generated (session) worlds point straight at the World Labs CDN,
+ * so absolute http(s) URLs are accepted too.
+ */
+export function usableAssetUrl(url: string | undefined): string {
+  if (!url) return ''
+  return url.startsWith('/worlds/') || url.startsWith('http://') || url.startsWith('https://')
+    ? url
+    : ''
 }
 
 export function getSplatUrl(world: World): string {
-  const urls = world.assets.splats.spz_urls
-  return localWorldAssetUrl(urls.full_res)
+  return usableAssetUrl(world.assets.splats.spz_urls.full_res)
 }
